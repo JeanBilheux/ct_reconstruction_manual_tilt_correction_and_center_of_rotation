@@ -1,0 +1,17 @@
+[workspace]
+authors = ["JeanBilheux <bilheuxjm@ornl.gov>"]
+channels = ["conda-forge"]
+name = "ct_reconstruction_manual_tilt_correction_and_center_of_rotation"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.14.3,<3.15"
+numpy = ">=2.4.3,<3"
+plotly = ">=6.6.0,<7"
+marimo = ">=0.21.1,<0.22"
+pillow = ">=12.2.0,<13"
+scikit-image = ">=0.26.0,<0.27"
+tifffile = ">=2026.3.3,<2027"

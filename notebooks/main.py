@@ -53,9 +53,7 @@ def _(file_browser_180, mo):
 
 
 @app.cell
-def _(mo, selected_path_0, selected_path_180):
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
+def _(selected_path_0, selected_path_180):
     from skimage.transform import resize
     import tifffile as tiff
     import numpy as np
@@ -72,26 +70,30 @@ def _(mo, selected_path_0, selected_path_180):
     low_res_img_180 = resize(img_180, new_shape, 
                              anti_aliasing=True,
                              preserve_range=True).astype(img_180.dtype)
+    low_res_img_180_flipped = np.fliplr(low_res_img_180)
 
     x_axis = np.linspace(0, img_0.shape[1], new_shape[1])
     y_axis = np.linspace(0, img_0.shape[0], new_shape[0])
 
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("0°", "180°"))
-    fig.add_trace(go.Heatmap(z=low_res_img_0, x=x_axis, y=y_axis, colorscale="gray", showscale=False), row=1, col=1)
-    fig.add_trace(go.Heatmap(z=low_res_img_180, x=x_axis, y=y_axis, colorscale="gray", showscale=False), row=1, col=2)
+    import plotly.express as px
+
+    # Blend the two images: average of 0° and flipped 180°
+    blended = (low_res_img_0.astype(np.float32) + low_res_img_180_flipped.astype(np.float32)) / 2.0
+
+    fig = px.imshow(blended, x=x_axis, y=y_axis, color_continuous_scale="gray", binary_string=True, origin="upper")
     fig.update_xaxes(showgrid=False, zeroline=False, showticklabels=True)
-    fig.update_yaxes(showgrid=False, zeroline=False, showticklabels=True)
-    fig.update_yaxes(scaleanchor="x", scaleratio=1, row=1, col=1)
-    fig.update_yaxes(scaleanchor="x2", scaleratio=1, row=1, col=2)
+    fig.update_yaxes(showgrid=False, zeroline=False, showticklabels=True,
+                      scaleanchor="x", scaleratio=1)
     fig.update_layout(
         height=900,
         width=1600,
-        title_text="0° and 180° Images",
+        title_text="0° and 180° (flipped) overlay",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
+        coloraxis_showscale=False,
     )
     fig
-    return (fig, img_0, img_180)
+    return
 
 
 if __name__ == "__main__":

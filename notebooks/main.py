@@ -13,8 +13,50 @@ def _():
 
 @app.cell
 def _(mo):
+    import os
+
+    venus_path = "/SNS/VENUS"
+    if os.path.isdir(venus_path):
+        ipts_folders = sorted(
+            [d for d in os.listdir(venus_path) if d.startswith("IPTS-")],
+            reverse=True,
+        )
+    else:
+        ipts_folders = []
+
+    if ipts_folders:
+        ipts_dropdown = mo.ui.dropdown(
+            options=ipts_folders,
+            label="Select IPTS folder",
+        )
+    else:
+        ipts_dropdown = mo.ui.dropdown(
+            options=["(no IPTS folders found)"],
+            value="(no IPTS folders found)",
+            label="Select IPTS folder",
+        )
+    ipts_dropdown
+    return (ipts_dropdown, venus_path)
+
+
+@app.cell
+def _(ipts_dropdown, mo, venus_path):
+    import os as _os
+
+    ipts_selected = ipts_dropdown.value
+    mo.stop(
+        ipts_selected is None or ipts_selected == "(no IPTS folders found)",
+        mo.md("**Please select an IPTS folder above.**"),
+    )
+    ipts_path = _os.path.join(venus_path, ipts_selected)
+    mo.md(f"IPTS path: `{ipts_path}`")
+    return (ipts_path,)
+
+
+@app.cell
+def _(ipts_path, mo):
     file_browser = mo.ui.file_browser(
-        initial_path="data",
+        initial_path=ipts_path,
         filetypes=[".tiff", ".tif"],
         label="Select the 0° TIFF image",
         multiple=False,
@@ -32,9 +74,9 @@ def _(file_browser, mo):
 
 
 @app.cell
-def _(mo):
+def _(ipts_path, mo):
     file_browser_180 = mo.ui.file_browser(
-        initial_path="data",
+        initial_path=ipts_path,
         filetypes=[".tiff", ".tif"],
         label="Select the 180° TIFF image",
         multiple=False,

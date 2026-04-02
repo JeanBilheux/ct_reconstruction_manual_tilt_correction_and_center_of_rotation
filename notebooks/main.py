@@ -2,7 +2,6 @@ import marimo
 
 __generated_with = "0.21.1"
 app = marimo.App(width="full")
-app._unparsable_config = {"output_max_bytes": 1_000_000_000}
 
 
 @app.cell
@@ -78,6 +77,7 @@ def _(selected_path_0, selected_path_180):
 
     # Blend the two images: average of 0° and flipped 180°
     blended = (low_res_img_0.astype(np.float32) + low_res_img_180_flipped.astype(np.float32)) / 2.0
+    blended_with_no_flips = (low_res_img_0.astype(np.float32) + low_res_img_180.astype(np.float32)) / 2.0
 
     fig = px.imshow(blended, x=x_axis, y=y_axis, color_continuous_scale="gray", binary_string=True, origin="upper")
     fig.update_xaxes(showgrid=False, zeroline=False, showticklabels=True)
@@ -92,20 +92,44 @@ def _(selected_path_0, selected_path_180):
         coloraxis_showscale=False,
     )
     fig
-    return
+    return (
+        blended_with_no_flips,
+        low_res_img_0,
+        low_res_img_180_flipped,
+        np,
+        px,
+        scale_factor,
+        x_axis,
+        y_axis,
+    )
 
-# figure out the tilt by co-registering the two images and calculating the shift between them. This can be done using feature matching or phase correlation methods.
+
 @app.cell
-def _(low_res_img_0, low_res_img_180_flipped, np, px):
-    from skimage import registration
+def _(low_res_img_0, low_res_img_180_flipped, np, px, scale_factor):
+    from skimage.registration import phase_cross_correlation
 
-    # Option A: cross-correlation to find shift automatically
-    shift, error, _ = registration.phase_cross_correlation(low_res_img_0, low_res_img_180_flipped)
-    print(f"Vertical shift (tilt indicator): {shift[0]:.3f} px")
-    print(f"Horizontal shift (COR offset):   {shift[1]:.3f} px")
+    # Sub-pixel phase cross-correlation between 0° and horizontally-flipped 180°
+    # upsample_factor=100 gives 1/100 pixel accuracy
+    shift, error, _ = phase_cross_correlation(
+        low_res_img_0.astype(np.float64),
+        low_res_img_180_flipped.astype(np.float64),
+        upsample_factor=100,
+    )
 
-    # Option B: visual comparison
+    # COR = image_center + horizontal_shift / 2  (in low-res pixel coords)
+    cor_low_res = low_res_img_0.shape[1] / 2 + shift[1] / 2
+    # Scale back to original image coordinates
+    cor_original = cor_low_res / scale_factor
 
+    tilt_shift_low_res = shift[0]
+    tilt_shift_original = tilt_shift_low_res / scale_factor
+
+    print(f"Horizontal shift (low-res px): {shift[1]:.3f}")
+    print(f"Vertical shift   (low-res px): {shift[0]:.3f}")
+    print(f"Center of rotation (original px): {cor_original:.2f}")
+    print(f"Tilt shift         (original px): {tilt_shift_original:.2f}")
+
+    # Visual comparison
     from plotly.subplots import make_subplots
 
     diff = low_res_img_0 - low_res_img_180_flipped
@@ -121,35 +145,68 @@ def _(low_res_img_0, low_res_img_180_flipped, np, px):
     fig1.update_yaxes(matches="y")
     fig1.update_layout(height=400, width=1200, coloraxis_showscale=False)
     fig1
+    return cor_original, tilt_shift_original
 
 
+@app.cell
+def _(
+    blended_with_no_flips,
+    cor_original,
+    np,
+    px,
+    tilt_shift_original,
+    x_axis,
+    y_axis,
+):
+    import plotly.graph_objects as go
 
+    img_height = y_axis[-1]
+    img_width = x_axis[-1]
 
-# @app.cell
-# def _(blended, x_axis, y_axis, shift, new_shape, img_0, np, px):
-#     # Center of rotation in original image coordinates
-#     cor_pixel = new_shape[1] / 2 + shift[1]/2  # in low-res pixels
-#     cor_x = np.interp(cor_pixel, np.arange(len(x_axis)), x_axis)
+    tilt_angle_deg = np.degrees(np.arctan2(tilt_shift_original, img_height))
 
-#     fig2 = px.imshow(blended, x=x_axis, y=y_axis, color_continuous_scale="gray", binary_string=True, origin="upper")
-#     fig2.add_vline(
-#         x=cor_x, line_color="red", line_width=2,
-#         annotation_text=f"COR = {cor_x:.1f} px",
-#         annotation_position="top left",
-#         annotation_font_color="red",
-#     )
-#     fig2.update_xaxes(showgrid=False, zeroline=False, showticklabels=True)
-#     fig2.update_yaxes(showgrid=False, zeroline=False, showticklabels=True,
-#                       scaleanchor="x", scaleratio=1)
-#     fig2.update_layout(
-#         height=900,
-#         width=1600,
-#         title_text="0° and 180° (flipped) overlay with Center of Rotation",
-#         paper_bgcolor="rgba(0,0,0,0)",
-#         plot_bgcolor="rgba(0,0,0,0)",
-#         coloraxis_showscale=False,
-#     )
-#     fig2
+    fig2 = px.imshow(blended_with_no_flips, x=x_axis, y=y_axis, color_continuous_scale="gray", binary_string=True, origin="upper")
+    # Vertical COR line
+    fig2.add_vline(
+        x=cor_original, line_color="red", line_width=2,
+        annotation_text=f"COR = {cor_original:.1f} px",
+        annotation_position="top left",
+        annotation_font_color="red",
+    )
+    # Tilt line: starts at COR at the bottom, offset by tilt_shift at the top
+    tilt_top_x = cor_original + tilt_shift_original
+    fig2.add_trace(go.Scatter(
+        x=[cor_original, tilt_top_x],
+        y=[img_height, 0],
+        mode="lines",
+        line=dict(color="cyan", width=2, dash="dash"),
+        name=f"Tilt = {tilt_angle_deg:.3f}°",
+        showlegend=True,
+    ))
+    # Tilt angle annotation on the right side of the dashed line, at COR text level
+    fig2.add_annotation(
+        x=tilt_top_x + img_width * 0.01,
+        y=0,
+        text=f"Tilt = {tilt_angle_deg:.3f}°",
+        showarrow=False,
+        font=dict(color="blue", size=14),
+        xanchor="left",
+        yanchor="bottom",
+        yref="y domain",
+    )
+    fig2.update_xaxes(showgrid=False, zeroline=False, showticklabels=True)
+    fig2.update_yaxes(showgrid=False, zeroline=False, showticklabels=True,
+                      scaleanchor="x", scaleratio=1)
+    fig2.update_layout(
+        height=900,
+        width=1600,
+        title_text="0° and 180° overlay with Center of Rotation",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        coloraxis_showscale=False,
+    )
+    fig2
+    return
 
 
 if __name__ == "__main__":

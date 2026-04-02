@@ -2,7 +2,7 @@
 authors = ["JeanBilheux <bilheuxjm@ornl.gov>"]
 channels = ["conda-forge"]
 name = "ct_reconstruction_manual_tilt_correction_and_center_of_rotation"
-platforms = ["osx-arm64"]
+platforms = ["osx-arm64", "linux-64"]
 version = "0.1.0"
 
 [tasks]

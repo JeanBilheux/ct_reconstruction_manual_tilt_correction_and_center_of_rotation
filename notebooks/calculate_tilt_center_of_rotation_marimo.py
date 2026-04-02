@@ -25,8 +25,10 @@ def _(mo):
         ipts_folders = []
 
     if ipts_folders:
+        default_ipts = "IPTS-37493" if "IPTS-37493" in ipts_folders else None
         ipts_dropdown = mo.ui.dropdown(
             options=ipts_folders,
+            value=default_ipts,
             label="Select IPTS folder",
         )
     else:
@@ -48,7 +50,7 @@ def _(ipts_dropdown, mo, venus_path):
         ipts_selected is None or ipts_selected == "(no IPTS folders found)",
         mo.md("**Please select an IPTS folder above.**"),
     )
-    ipts_path = _os.path.join(venus_path, ipts_selected)
+    ipts_path = _os.path.join(venus_path, ipts_selected, "images", "ikonxl", "raw", "ct")
     mo.md(f"IPTS path: `{ipts_path}`")
     return (ipts_path,)
 
@@ -166,10 +168,10 @@ def _(low_res_img_0, low_res_img_180_flipped, np, px, scale_factor):
     tilt_shift_low_res = shift[0]
     tilt_shift_original = tilt_shift_low_res / scale_factor
 
-    print(f"Horizontal shift (low-res px): {shift[1]:.3f}")
-    print(f"Vertical shift   (low-res px): {shift[0]:.3f}")
-    print(f"Center of rotation (original px): {cor_original:.2f}")
-    print(f"Tilt shift         (original px): {tilt_shift_original:.2f}")
+    # print(f"Horizontal shift (low-res px): {shift[1]:.3f}")
+    # print(f"Vertical shift   (low-res px): {shift[0]:.3f}")
+    # print(f"Center of rotation (original px): {cor_original:.2f}")
+    # print(f"Tilt shift         (original px): {tilt_shift_original:.2f}")
 
     # Visual comparison
     from plotly.subplots import make_subplots
